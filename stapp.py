@@ -5,15 +5,15 @@ from datetime import datetime
 
 # Set the page configuration
 st.set_page_config(
-    page_title="Red Bus - Online Bus Ticket Booking",
+    page_title="Red Bus",
     page_icon="🚌",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # Add a title and description
-st.title("Easy and Secure Online Bus Ticket Booking")
-st.subheader("Book your bus tickets conveniently with top-rated services and flexible options")
+st.title("Online Bus Ticket Booking")
+st.subheader("Book your bus tickets conveniently")
 
 # Connect to MySQL database
 def get_connection():
@@ -67,34 +67,26 @@ def filter_data(df, departing_time_filter, reaching_time_filter, bus_type_filter
         reach_start, reach_end = time_ranges[reaching_time_filter]
         df = df[(df['Reaching_Time'] >= reach_start) & (df['Reaching_Time'] <= reach_end)]
 
-    # Bus Type Filter with handling for variants
+    # Improved Bus Type Filter with comprehensive regex for variations
     if bus_type_filter:
         bus_type_filter = bus_type_filter.lower().strip()
         if bus_type_filter == "sleeper":
-            df = df[df['Bus_Type'].str.contains(r"\bsleeper\b", case=False, na=False)]
+            # Match buses that contain "Sleeper" but exclude those containing "Semi Sleeper"
+            df = df[df['Bus_Type'].str.contains(r"\bsleeper\b", case=False, na=False) &
+                    ~df['Bus_Type'].str.contains(r"\bsemi\s*sleeper\b", case=False, na=False)]
         elif bus_type_filter == "semi sleeper":
-            df = df[df['Bus_Type'].str.contains(r"\bsemi sleeper\b", case=False, na=False)]
+            # Match buses that contain "Semi Sleeper" but exclude those containing "Sleeper"
+            df = df[df['Bus_Type'].str.contains(r"\bsemi\s*sleeper\b", case=False, na=False) &
+                    ~df['Bus_Type'].str.contains(r"\bsleeper\b", case=False, na=False)]
         elif bus_type_filter == "ac":
-            df = df[df['Bus_Type'].str.contains(r"\bac\b", case=False, na=False) & 
-                    ~df['Bus_Type'].str.contains(r"\bnon\s*ac\b", case=False, na=False)]
+            df = df[df['Bus_Type'].str.contains(r"\b(ac|a/c)\b", case=False, na=False) &
+                    ~df['Bus_Type'].str.contains(r"\b(non[\s-]*ac|non[\s-]*a/c)\b", case=False, na=False)]
         elif bus_type_filter == "non ac":
-            df = df[df['Bus_Type'].str.contains(r"\bnon\s*ac\b", case=False, na=False)]
+            df = df[df['Bus_Type'].str.contains(r"\b(non[\s-]*ac|non[\s-]*a/c)\b", case=False, na=False)]
 
-    # Filter by star rating range (if selected)
+    # filter for star rating (show all ratings less than or equal to selected rating)
     if star_rating_filter:
-        rate_min, rate_max = 0, 5
-        if star_rating_filter == 5:
-            rate_min, rate_max = 4.2, 5
-        elif star_rating_filter == 4:
-            rate_min, rate_max = 3.0, 4.2
-        elif star_rating_filter == 3:
-            rate_min, rate_max = 2.0, 3.0
-        elif star_rating_filter == 2:
-            rate_min, rate_max = 1.0, 2.0
-        elif star_rating_filter == 1:
-            rate_min, rate_max = 0, 1.0
-
-        df = df[(df['Star_Rating'] >= rate_min) & (df['Star_Rating'] <= rate_max)]
+        df = df[df['Star_Rating'] <= star_rating_filter]
 
     # Filter by price range (only if filter is applied)
     if price_filter == "Below 500":
@@ -117,7 +109,7 @@ def filter_data(df, departing_time_filter, reaching_time_filter, bus_type_filter
 
 # Main Streamlit app
 def main():
-    st.header('Easy and Secure Online Bus Tickets Booking')
+    st.header('Easy and Secure Ticket Booking')
     connection = get_connection()
 
     if connection is None:
@@ -125,8 +117,8 @@ def main():
         return
 
     try:
-        # Sidebar - Input for starting letter
-        starting_letter = st.sidebar.text_input('Enter starting letter of Route Name', 'A')
+        # Sidebar - Input for Route name
+        starting_letter = st.sidebar.text_input('Enter the name of city for your bus route', 'A')
 
         # Fetch route names starting with the specified letter
         if starting_letter:
@@ -173,17 +165,17 @@ def main():
                                 st.write("### Filtered Bus Data")
                                 st.write(filtered_data[['Route_Name', 'Departing_Time', 'Reaching_Time', 'Price', 'Seat_Availability', 'Star_Rating', 'Bus_Type']])
                             else:
-                                st.warning("No buses found matching the selected filters.")
-                        else:
-                            st.warning("Please select at least one filter to view the results.")
+                                st.write("No buses match the selected filters.")
                     else:
-                        st.warning(f"No data found for Route: {selected_route}.")
+                        st.write(f"No buses found for the selected route: {selected_route}")
+                else:
+                    st.write("Please select a route.")
             else:
-                st.info("No routes found starting with the specified letter.")
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
+                st.write("No routes found for the entered letter.")
+        else:
+            st.write("Please enter a starting letter for the city.")
     finally:
         connection.close()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
